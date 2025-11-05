@@ -1,0 +1,207 @@
+services:
+  # ------------------ DATABASES ------------------
+  postgres-auth:
+    image: postgres:15
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata-auth:/var/lib/postgresql/data
+
+  postgres-order:
+    image: postgres:15
+    container_name: postgres-order
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata-order:/var/lib/postgresql/data
+
+  postgres-payment:
+    image: postgres:15
+    container_name: postgres-payment
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata-payment:/var/lib/postgresql/data
+
+  postgres-restaurant:
+    image: postgres:15
+    container_name: postgres-restaurant
+    environment:
+      POSTGRES_DB: restaurant_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+    ports:
+      - "5436:5432"
+    volumes:
+      - pgdata-restaurant:/var/lib/postgresql/data
+
+  # ------------------ KAFKA ------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+#  ------------------ REDIS ------------------
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  # ------------------ DISCOVERY SERVER ------------------
+  discovery-server:
+    build: ./discovery-server
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    restart: always
+
+  # ------------------ AUTH SERVICE ------------------
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    depends_on:
+      - postgres-auth
+      - kafka
+      - discovery-server
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      FLYWAY_SCHEMA: authentication
+      SERVER_PORT: 8282
+
+    ports:
+      - "8282:8282"
+    restart: always
+
+  # ------------------ ORDER SERVICE ------------------
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    depends_on:
+      - postgres-order
+      - kafka
+      - discovery-server
+      - auth-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-order:5432/order_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123
+      FLYWAY_SCHEMA: order_service
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONSUMER_GROUP: order-service-group
+      KAFKA_AUTO_START: true     # nếu chưa muốn bật Kafka Phase này
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      SERVER_PORT: 8181
+    ports:
+      - "8181:8181"
+    restart: always
+
+
+
+
+#   ------------------ PAYMENT SERVICE ------------------
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    depends_on:
+      - postgres-payment
+      - kafka
+      - discovery-server
+      - order-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-payment:5432/payment_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      SERVER_PORT: 8383
+      FLYWAY_SCHEMA: payment_service
+    ports:
+      - "8383:8383"
+    restart: always
+
+
+    # ------------------ RESTAURANT SERVICE ------------------
+
+  restaurant-service:
+    build: ./restaurant-service
+    container_name: restaurant-service
+    depends_on:
+      - postgres-restaurant
+      - kafka
+      - discovery-server
+      - order-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-restaurant:5432/restaurant_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      SERVER_PORT: 8484
+      FLYWAY_SCHEMA: restaurant_service
+    ports:
+      - "8484:8484"
+    restart: always
+
+  # ------------------ API GATEWAY ------------------
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    depends_on: 
+      - discovery-server
+      - auth-service
+      - order-service
+      - payment-service
+      - restaurant-service
+      - redis
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+    restart: always
+
+# ------------------ VOLUMES ------------------
+volumes:
+  pgdata-auth:
+  pgdata-order:
+  pgdata-payment:
+  pgdata-restaurant:
