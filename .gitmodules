@@ -6,3 +6,7 @@
 	path = restaurant-service
 	url = https://github.com/ngociss/restaurant-service.git
 	branch = main
+[submodule "payment-service"]
+	path = payment-service
+	url = https://github.com/ngociss/payment-service.git
+	branch = main
