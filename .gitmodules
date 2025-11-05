@@ -2,3 +2,7 @@
 	path = order-service
 	url = https://github.com/ngociss/order-service.git
 	branch = master
+[submodule "restaurant-service"]
+	path = restaurant-service
+	url = https://github.com/ngociss/restaurant-service.git
+	branch = main
