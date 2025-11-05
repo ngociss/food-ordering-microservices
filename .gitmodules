@@ -10,3 +10,7 @@
 	path = payment-service
 	url = https://github.com/ngociss/payment-service.git
 	branch = main
+[submodule "auth-service"]
+	path = auth-service
+	url = https://github.com/ngociss/auth-service.git
+	branch = main
