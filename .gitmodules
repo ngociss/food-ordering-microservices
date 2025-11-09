@@ -14,3 +14,7 @@
 	path = auth-service
 	url = https://github.com/ngociss/auth-service.git
 	branch = main
+[submodule "discovery-server"]
+	path = discovery-server
+	url = https://github.com/ngociss/discover-server.git
+	branch = master
