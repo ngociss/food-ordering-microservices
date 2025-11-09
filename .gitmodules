@@ -18,3 +18,7 @@
 	path = discovery-server
 	url = https://github.com/ngociss/discover-server.git
 	branch = master
+[submodule "api-gateway"]
+	path = api-gateway
+	url = https://github.com/ngociss/api-gateway.git
+	branch = master
